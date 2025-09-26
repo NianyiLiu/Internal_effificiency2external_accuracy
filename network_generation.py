@@ -6,6 +6,7 @@ import seaborn as sns
 import networkx as nx
 import bct
 import os
+import sys
 
 from data_connectome import Connectome
 
@@ -273,18 +274,19 @@ def generate_ws_networks(c, p, n = 100, shuffle = True, start_n = 0, connectivit
         np.savetxt(matrix_file, w_r, delimiter=',')
 
 if __name__ == '__main__':
-    generate_randomize_networks(2, 1000, connectivity='BNA')
-    generate_ws_networks_bna_bfr_sigma(1000, True)
-    generate_er_networks_bna_bfr(1000)
-    generate_ba_networks_bna_bfr(1000)
-    
-    generate_randomize_networks(5)
-    generate_er_networks(5)
-    generate_ba_networks(5)
-    generate_ws_networks(5, p=0.34)
-    
-    generate_randomize_networks(0, n=100, connectivity='glasser')
-    generate_er_networks(0, n=100, connectivity='glasser')
-    generate_ba_networks(0, n=100, connectivity='glasser')
-    generate_ws_networks(0, p=0.38, n=100, connectivity='glasser')
+    n = int(sys.argv[1])
+    generate_randomize_networks(2, n, connectivity='BNA')
+    generate_ws_networks_bna_bfr_sigma(n, True)
+    generate_er_networks_bna_bfr(n)
+    generate_ba_networks_bna_bfr(n)
+
+    # generate_randomize_networks(5, n, connectivity='human')
+    # generate_er_networks(5, n, connectivity='human')
+    # generate_ba_networks(5, n, connectivity='human')
+    # generate_ws_networks(5, p=0.34, n=n, connectivity='human')
+
+    # generate_randomize_networks(0, n=n, connectivity='glasser')
+    # generate_er_networks(0, n=n, connectivity='glasser')
+    # generate_ba_networks(0, n=n, connectivity='glasser')
+    # generate_ws_networks(0, p=0.38, n=n, connectivity='glasser')
     
