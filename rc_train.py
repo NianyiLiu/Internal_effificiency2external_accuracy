@@ -68,9 +68,9 @@ if __name__ == '__main__':
     start_time = time.time()
     for subject_id in range(args.start_number, args.stop_number):
         w, disc = c.get_connectivity(args.connectome, subject_id)
-        OUTPUT_DIR = os.path.join('results', task_type, disc, str(subject_id))
-        if not os.path.exists(OUTPUT_DIR):
-            os.makedirs(OUTPUT_DIR)
+        output_dir = os.path.join('results', task_type, disc, str(subject_id))
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
         print('Subject id:', subject_id)
         print('Network discription:', disc)
     
@@ -82,13 +82,13 @@ if __name__ == '__main__':
         input_labels, output_labels = c.get_labels()
         input_nodes, output_nodes = np.where(input_labels)[0], np.where(output_labels)[0]
         n_features = 41
-        if os.path.exists(os.path.join(OUTPUT_DIR, 'w_in.npy')):
-            w_in_all = np.load(os.path.join(OUTPUT_DIR, 'w_in.npy'))
+        if os.path.exists(os.path.join(output_dir, 'w_in.npy')):
+            w_in_all = np.load(os.path.join(output_dir, 'w_in.npy'))
         else:
             w_in_all = np.zeros((n_features, len(w)))
             w_in_all[:, input_nodes] = scipy.stats.ortho_group.rvs(max(n_features, len(input_nodes)))[0: n_features, 0: len(input_nodes)]
             if args.save_w_in:
-                np.save(os.path.join(OUTPUT_DIR, 'w_in.npy'), w_in_all, )
+                np.save(os.path.join(output_dir, 'w_in.npy'), w_in_all, )
         df_subj = []
         
         for task_name in tasks:
@@ -149,7 +149,7 @@ if __name__ == '__main__':
         df_subj = pd.concat(df_subj, ignore_index=True)
         csv_name = f'alphas_performance.csv'
         df_subj.to_csv(
-            os.path.join(OUTPUT_DIR, csv_name),
+            os.path.join(output_dir, csv_name),
             index=False
         )
         print(f'subject{subject_id} done!')

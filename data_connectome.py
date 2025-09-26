@@ -24,7 +24,8 @@ def _disc_c(net_discription, random_id, net_loop = 1000):
     return connectivity
 
 def _shuffle_nodes(connectivity: np.ndarray) -> np.ndarray:
-    ''' 对连接矩阵的节点进行随机打乱。 '''
+    ''' Randomly shuffle the nodes of the connectivity matrix.
+    '''
     n = connectivity.shape[0]
     permutation = np.random.permutation(n)
     return connectivity[permutation][:, permutation]
@@ -195,7 +196,7 @@ class Connectome(object):
         return np.asarray([i for i in self.subregions['MNI(X,Y,Z)']])
     @property
     def distance_matrix(self, metric='euclidean'):
-        ''' 计算空间距离矩阵。 '''
+        ''' Calculate the distance matrix between nodes based on MNI coordinates. '''
         coor = np.asarray([i for i in self.subregions['MNI(X,Y,Z)']])
         dist = scipy.spatial.distance.squareform(scipy.spatial.distance.pdist(coor, metric=metric))
         return dist
@@ -255,7 +256,7 @@ class Connectome(object):
         yeo7 = dict(zip(map(int, df1.iloc[:, 0]), df1.iloc[:, 1]))
         yeo17 = dict(zip(map(int, df2.iloc[:, 0]), df2.iloc[:, 1]))
         yeo7[0] = ''
-        yeo17[0] = '' # 为了后面在用get方法时返回空字符串，而不要返回None
+        yeo17[0] = ''
         df = df.iloc[:, :5]
         df.loc[:, 'Yeo 7 Network name'] = df['Yeo_7network'].apply(yeo7.get)
         df.loc[:, 'Yeo 17 Network name'] = df['Yeo_17network'].apply(yeo17.get)
@@ -278,7 +279,6 @@ class Connectome(object):
         self.lobes = lobe
         self.gyri = gyrus
 
-    # 常用
     def node_community(self, c: str = 'Lobe', out: str = 'array'):
         c = c.lower()
         if c == 'lobe':
