@@ -1,3 +1,4 @@
+import argparse
 import numpy as np
 import scipy.stats
 import pandas as pd
@@ -110,10 +111,10 @@ NEUROGYM_TASKS = [
     'PulseDecisionMaking',
     'Reaching1D', # 32 dimensions, no fixation
     'Reaching1DWithSelfDistraction', # 32 dimensions, no fixation
-    # 'ReachingDelayResponse', # 这个输出是浮点数
+    # 'ReachingDelayResponse',
     'ReadySetGo',
     'SingleContextDecisionMaking',
-    # 'SpatialSuppressMotion', # 这个报错
+    # 'SpatialSuppressMotion',
     # 'ToneDetection'  # *
 ]
 NEUROGYM_tasks_abbr = (
@@ -191,7 +192,6 @@ NEUROGYM_tasks_discription = (
     'Agents have to measure and produce different time intervals. A stimulus is briefly shown during a ready period, then again during a set period. The ready and set periods are separated by a measure period, the duration of which is randomly sampled on each trial. The agent is required to produce a response after the set cue such that the interval between the response and the set cue is as close as possible to the duration of the measure period.',
     'Context-dependent decision-making task.The agent simultaneously receives stimulus inputs from two modalities ( for example, a colored random dot motion pattern with color and motion modalities). The agent needs to make a perceptual decision based on only one of the two modalities, while ignoring the other. The agent reports its decision during the decision period, with an optional delay period in between the stimulus period and the decision period. The relevant modality is not explicitly signaled.',
 )
-# 有些任务不能用 f1_score 作为评价指标，输出是浮点数
 RESERVOIRPY_TASKS = [
     'henon_map',
     # 'logistic_map', # local variable 'sections' referenced before assignment
@@ -257,11 +257,9 @@ def neurogym_task_input(n_features, n_trials, task_ids, task_type='neurogym', no
     if noise_sigma:
         sigma = np.sqrt(2) * noise_sigma
 
-    # 任务的输入维度不一样，要给它们对齐到同一个维度
-    # task_samples = [] # 记录每个任务的输入维度大小
     x_list = []
     # y_list = []
-    task_idx = [] # 记录x_list 中每个任务输入属于哪个任务
+    task_idx = []
     n_features = 41
     if task_ids == None:
         task_ids = range(len(NEUROGYM_TASKS))
@@ -298,7 +296,6 @@ def neurogym_task_input(n_features, n_trials, task_ids, task_type='neurogym', no
     # for x in x_list:
     #     print(x.shape)
 
-    # # 这里要修改一下逻辑，在生成每个任务时就要pad，要保证每个任务的时常是一样的
     # for i in range(len(x_list)):
     #     n_pad = n_features - x_list[i].shape[1]
     #     if task_idx[i] in (19, 20):
@@ -311,10 +308,8 @@ def neurogym_task_input(n_features, n_trials, task_ids, task_type='neurogym', no
     return x_list, task_idx
 
 def neurogym_input2hidden(x_list, task_idx, w, w_in, alpha, concat_method, output_nodes = np.arange(210)) -> list[list[np.ndarray]]:
-    # 固定常数
     # tasks = [res_task(task_name, task_type) for task_name in task_names]
 
-    # 设置连接矩阵
     conn = connectivity.Conn(w=w)
     conn.scale_and_normalize()
         
@@ -322,14 +317,12 @@ def neurogym_input2hidden(x_list, task_idx, w, w_in, alpha, concat_method, outpu
     esn.w = alpha * conn.w
 
     if concat_method == 'all':
-        # 方法一：直接组装成一整个序列
         hidden_states_tasks = esn.simulate(
             ext_input=x_list, w_in=w_in,
             output_nodes=output_nodes
         )
         hidden_states_tasks = dispach_data(hidden_states_tasks, task_idx)
     elif concat_method == 'task':
-        # 方法二：每种任务的所有trial组装成一个序列，分别得到隐状态
         input_tasks = dispach_data(x_list, task_idx)
         hidden_states_tasks = []
         for x in input_tasks:
@@ -342,7 +335,7 @@ def neurogym_input2hidden(x_list, task_idx, w, w_in, alpha, concat_method, outpu
         raise NotImplementedError()
     else:
         raise ValueError()
-    return hidden_states_tasks # 结束对应 tasks, trials
+    return hidden_states_tasks
 
 def neurogym_hidden_states(w, alpha=1., concat_method='all', n_trials=10, task_ids=None, w_in=None):
     n_features = 41
@@ -350,46 +343,26 @@ def neurogym_hidden_states(w, alpha=1., concat_method='all', n_trials=10, task_i
 
     if w_in is None:
         input_nodes = np.arange(210, 246)
-        # 随机参数
         w_in = np.zeros((n_features, 246))
         w_in[:, input_nodes] = scipy.stats.ortho_group.rvs(max(n_features, len(input_nodes)))[0: n_features, 0: len(input_nodes)]
     else:
         w_in = w_in
 
     hidden_states_tasks = neurogym_input2hidden(x_list, task_idx, w, w_in, alpha, concat_method)
-    # print(f'{len(hidden_states_tasks)} tasks, each {len(hidden_states_tasks[0])} trials.') # 任务数，每个任务包含的trial数
     return hidden_states_tasks
 
 def get_hidden_states_tasks(c, n, alphas, time_points=1500, pad_trials=False, concat_method='task', connectome = Connectome()) -> list[list[np.ndarray]]:
-    # pad_trials 如果为True，则每个trial的时间长度一样，时间短的任务用0补齐
     
-    # 这段代码描述了如何获取每个任务的平均时间长度
-    # from analysis_conn2res import res_task, NEUROGYM_TASKS
-    # import numpy as np
-    # task_ids = range(len(NEUROGYM_TASKS))
-    # task_type='neurogym'
-    # n_trials = 78
-    # task_mean_length = []
-    # for i in task_ids:
-    #     task_name = NEUROGYM_TASKS[i]
-    #     # task_name = NEUROGYM_TASKS[14]
-    #     task = res_task(task_name, task_type)
-    #     x, _ = task.fetch_data(n_trials=n_trials, input_gain=1) # [batch size, time steps, features]
-    #     task_mean_length.append(np.sum([i.shape[0] for i in x]))
-    # print(task_mean_length)
     task_mean_length = np.array([15.0, 19.004, 26.0, 27.0, 32.0, 53.0, 45.0, 40.0, 15.0, 37.81, 36.058, 58.824, 11.0, 58.262, 22.0, 42.166, 18.559, 34.481, 250.0, 10.0, 10.0, 43.925, 19.159])
 
     n_features = 41
     n_trials = (time_points / task_mean_length).round(0).astype(int)
-    # alphas_exp = np.hstack([np.linspace(-3, -1, 5), np.linspace(-0.5, 0.5, 21), np.linspace(1, 3, 5)])
-    # alphas_exp = np.hstack([np.linspace(-3, -1.5, 6), np.linspace(-1.3, -1.1, 2), np.linspace(-0.9, 0.9, 19), np.linspace(1, 3, 11)]).round(3) # 根据绘图情况重新调整了
-    # alphas = np.exp(alphas_exp)
     task_ids = None
     x_list, task_idx = neurogym_task_input(n_features=n_features, n_trials=n_trials, task_ids=task_ids, noise_sigma=0.01, pad_trials=pad_trials)
     w, disc = connectome.get_connectivity(c, n)
     w_in = np.load(os.path.join('results', 'neurogym', disc, str(n), 'w_in.npy'))
 
-    h_list = []  # 阶数分别对应alpha、tasks
+    h_list = []
     for a in alphas:
         hidden_states_tasks = neurogym_input2hidden(x_list=x_list, task_idx=task_idx, w=w, w_in=w_in, alpha=a, concat_method=concat_method, output_nodes=np.arange(246))
         if pad_trials:
@@ -433,13 +406,12 @@ def get_conn2res_task_metrics(task_type):
         metrics = 'mean_absolute_error'
     return metrics
 def simulated_mean_df(task_type, sim_df, labels=['id', 'task']):
-    ''' 对data frame中的metrics进行平均，保留的信息由labels决定，返回一个只有一列的data frame，其index是labels的组合 '''
     metrics = get_conn2res_task_metrics(task_type)
     tmp_df = sim_df.groupby(labels)[[metrics]].mean()
     return tmp_df
 def simulated_data_array(task_type, sim_df):
     tmp_df = simulated_mean_df(task_type, sim_df)
-    tmp_df = tmp_df.unstack() # 将index展平成列
+    tmp_df = tmp_df.unstack()
     sim_data = tmp_df.to_numpy()
     # sim_task_name = tmp_df.columns.get_level_values(1).tolist()
     sim_task_name = tmp_df.columns.levels[1].tolist()
@@ -467,17 +439,17 @@ def readout_module(hidden_states_tasks_padded, w_out_tasks):
     y_pred_tasks = []
     for hidden_states, w_out in zip(hidden_states_tasks_padded, w_out_tasks):
         y_pred = np.einsum('ih,tjh->tijh', w_out, hidden_states)
-        y_pred = np.concatenate(y_pred, axis=0) # 把时间和读出的维度合并（因为最后算task variance只考虑trial间的方差）
+        y_pred = np.concatenate(y_pred, axis=0)
         y_pred_tasks.append(y_pred)
     return y_pred_tasks
 
 def task_variance_modularity_sigma(c):
-    from analysis import small_world_sigma, task_variance
+    from analysis_rc import small_world_sigma, task_variance
     connectome = Connectome()
     modularities = []
     sigmas = []
     for rand_id in range(50):
-        w, disc = connectome.get_connectivity(c, random_id=rand_id) # 随机bfr
+        w, disc = connectome.get_connectivity(c, random_id=rand_id)
         hidden_states_tasks = neurogym_hidden_states(w, concat_method='task')
         h_tv = [task_variance(np.stack(hidden_states, axis=1)) for hidden_states in hidden_states_tasks]
         h_tv = np.stack(h_tv, axis=1)
@@ -531,7 +503,7 @@ def fc(start_n, stop_n, c_id):
         print(f'{i} done.')
         
 def task_variance_graph(start_n, stop_n, c_id,):
-    from analysis import task_variance, small_world_sigma
+    from analysis_rc import task_variance, small_world_sigma
     connectome = Connectome()
     alphas = (0.1, 0.25, 0.5, 0.8, 1.0, 1.25, 2.0, 4.0, 10.0)
     disc = connectome.conn_name(c_id)
@@ -540,10 +512,7 @@ def task_variance_graph(start_n, stop_n, c_id,):
     for rand_id in range(start_n, stop_n):
         print(f'{rand_id} begin.', end=' ')
         output_dir = os.path.join('results', 'neurogym', disc, str(rand_id))
-        # h_lists = get_hidden_states_tasks(c_id, rand_id, alphas, pad_trials=True,connectome=connectome) # 返回的list[list[np.ndarray]] 里面array的维度是3（pad_trials=True）
-        # h_tv_lists = [[task_variance(h) for h in hidden_states_list] for hidden_states_list in h_lists]
-        # h_tv_alphas = [np.stack(t, axis=1) for t in h_tv_lists]
-        h_tv_alphas = np.load(os.path.join(output_dir, 'task_variance.npy')) # 如果之前算好了可以直接加载
+        h_tv_alphas = np.load(os.path.join(output_dir, 'task_variance.npy'))
         
         mat_alphas = [np.corrcoef(t) for t in h_tv_alphas]
         for mat in mat_alphas:
@@ -569,7 +538,7 @@ def task_variance_graph(start_n, stop_n, c_id,):
         print(f'{rand_id} saved to {output_dir}.')
 
 def task_variance_only(start_n, stop_n, c_id):
-    from analysis import task_variance
+    from analysis_rc import task_variance
     connectome = Connectome()
     alphas = (0.1, 0.25, 0.5, 0.8, 1.0, 1.25, 2.0, 4.0, 10.0)
     disc = connectome.conn_name(c_id)
@@ -577,7 +546,7 @@ def task_variance_only(start_n, stop_n, c_id):
     print(f'{disc}')
     for rand_id in range(start_n, stop_n):
         print(f'{rand_id} begin.', end=' ')
-        h_lists = get_hidden_states_tasks(c_id, rand_id, alphas, pad_trials=True,connectome=connectome) # 返回的list[list[np.ndarray]] 里面array的维度是3（pad_trials=True）
+        h_lists = get_hidden_states_tasks(c_id, rand_id, alphas, pad_trials=True,connectome=connectome)
         h_tv_lists = [[task_variance(h) for h in hidden_states_list] for hidden_states_list in h_lists]
         h_tv_alphas = [np.stack(t, axis=1) for t in h_tv_lists]
     
@@ -588,7 +557,7 @@ def task_variance_only(start_n, stop_n, c_id):
         print(f'{rand_id} saved to {output_dir}.')
         
 def fc_tasks_graph(start_n, stop_n, c_id,):
-    from analysis import small_world_sigma
+    from analysis_rc import small_world_sigma
     connectome = Connectome()
     alphas = (0.1, 0.25, 0.5, 0.8, 1.0, 1.25, 2.0, 4.0, 10.0)
     disc = connectome.conn_name(c_id)
@@ -628,7 +597,7 @@ def fc_tasks_graph(start_n, stop_n, c_id,):
         print(f'{rand_id} saved to {output_dir}.')
         
 def fc_graph(start_n, stop_n, c_id,):
-    from analysis import small_world_sigma
+    from analysis_rc import small_world_sigma
     connectome = Connectome()
     alphas = (0.1, 0.25, 0.5, 0.8, 1.0, 1.25, 2.0, 4.0, 10.0)
     disc = connectome.conn_name(c_id)
@@ -704,7 +673,7 @@ def gradients_tasks(start_n, stop_n, c_id):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         np.save(os.path.join(output_dir, 'gradients_tasks'), grads)
-        np.save(os.path.join(output_dir, 'gradients_tasks_correlation'), mean_corr) # 注意这个存的是上三角阵
+        np.save(os.path.join(output_dir, 'gradients_tasks_correlation'), mean_corr)
         print(f'{rand_id} saved to {output_dir}.')
         
 def gradients_tasks_correlation(start_n, stop_n, c_id, n_comp=4):
@@ -736,7 +705,7 @@ def gradients_tasks_correlation(start_n, stop_n, c_id, n_comp=4):
             mean_corr.append(mean_task_corr)
         mean_corr = np.asarray(mean_corr) # 9, 23, 23
         
-        np.save(os.path.join(output_dir, f'gradients_{n_comp}_tasks_correlation'), mean_corr) # 注意这个存的是上三角阵
+        np.save(os.path.join(output_dir, f'gradients_{n_comp}_tasks_correlation'), mean_corr)
         print(f'{rand_id} saved to {output_dir}.')
         
 def gradients(start_n, stop_n, c_id):
@@ -778,16 +747,57 @@ def pvalue_label(p):
             
 if __name__ == '__main__':
     models = [2, 32, 53, 51, 52]
-    
-    start_number = 0
-    stop_number = 1000
-    for i in range(len(models)):
-        fc_tasks(start_n=100, stop_n=1000, c_id=models[i])
-        fc(start_n=start_number, stop_n=stop_number, c_id=models[i])
-        task_variance_only(start_n=start_number, stop_n=stop_number, c_id=models[i])
-        task_variance_graph(start_n=start_number, stop_n=stop_number, c_id=models[i])
-        gradients_tasks(start_n=start_number, stop_n=stop_number, c_id=models[i])
-        gradients(start_n=start_number, stop_n=stop_number, c_id=models[i])
-        fc_tasks_graph(start_n=start_number, stop_n=stop_number, c_id=models[i])
-        fc_graph(start_n=start_number, stop_n=stop_number, c_id=models[i])
-        gradients_tasks_correlation(start_n=start_number, stop_n=stop_number, c_id=models[i])
+    parser = argparse.ArgumentParser(description='Analysis RC')
+    parser.add_argument('--func', type=str, default='', help='function to run')
+    parser.add_argument('--start', type=int, default=0, help='start number')
+    parser.add_argument('--stop', type=int, default=1000, help='stop number')
+    parser.add_argument('-c', type=int, default=2, help='connectome id')
+    args = parser.parse_args()
+    func = args.func
+
+    start_number = args.start
+    stop_number = args.stop
+    c = args.c
+    assert c in models, f'c must be one of {models}'
+
+    if func == 'fc_tasks':
+        fc_tasks(start_n=start_number, stop_n=stop_number, c_id=c)
+    elif func == 'fc':
+        fc(start_n=start_number, stop_n=stop_number, c_id=c)
+    elif func == 'task_variance_only':
+        task_variance_only(start_n=start_number, stop_n=stop_number, c_id=c)
+    elif func == 'task_variance_graph':
+        task_variance_graph(start_n=start_number, stop_n=stop_number, c_id=c)
+    elif func == 'gradients_tasks':
+        gradients_tasks(start_n=start_number, stop_n=stop_number, c_id=c)
+    elif func == 'gradients':
+        gradients(start_n=start_number, stop_n=stop_number, c_id=c)
+    elif func == 'fc_tasks_graph':
+        fc_tasks_graph(start_n=start_number, stop_n=stop_number, c_id=c)
+    elif func == 'fc_graph':
+        fc_graph(start_n=start_number, stop_n=stop_number, c_id=c)
+    elif func == 'gradients_tasks_correlation':
+        gradients_tasks_correlation(start_n=start_number, stop_n=stop_number, c_id=c)
+    elif not func:
+        fc_tasks(start_n=start_number, stop_n=stop_number, c_id=c)
+        fc(start_n=start_number, stop_n=stop_number, c_id=c)
+        task_variance_only(start_n=start_number, stop_n=stop_number, c_id=c)
+        task_variance_graph(start_n=start_number, stop_n=stop_number, c_id=c)
+        gradients_tasks(start_n=start_number, stop_n=stop_number, c_id=c)
+        gradients(start_n=start_number, stop_n=stop_number, c_id=c)
+        fc_tasks_graph(start_n=start_number, stop_n=stop_number, c_id=c)
+        fc_graph(start_n=start_number, stop_n=stop_number, c_id=c)
+        gradients_tasks_correlation(start_n=start_number, stop_n=stop_number, c_id=c)
+    else:
+        raise ValueError(f"Unknown function: {func}")
+
+    # for i in range(len(models)):
+    #     fc_tasks(start_n=start_number, stop_n=stop_number, c_id=models[i])
+    #     fc(start_n=start_number, stop_n=stop_number, c_id=models[i])
+    #     task_variance_only(start_n=start_number, stop_n=stop_number, c_id=models[i])
+    #     task_variance_graph(start_n=start_number, stop_n=stop_number, c_id=models[i])
+    #     gradients_tasks(start_n=start_number, stop_n=stop_number, c_id=models[i])
+    #     gradients(start_n=start_number, stop_n=stop_number, c_id=models[i])
+    #     fc_tasks_graph(start_n=start_number, stop_n=stop_number, c_id=models[i])
+    #     fc_graph(start_n=start_number, stop_n=stop_number, c_id=models[i])
+    #     gradients_tasks_correlation(start_n=start_number, stop_n=stop_number, c_id=models[i])

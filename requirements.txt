@@ -7,4 +7,6 @@ bctpy
 netneurotools
 reservoirpy
 brainspace
-neurogym
+torch
+torchvision
+torchaudio
