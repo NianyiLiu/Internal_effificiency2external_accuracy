@@ -16,6 +16,9 @@ Clone and install the `conn2res` package:
 git clone https://github.com/netneurolab/conn2res.git
 cd conn2res
 pip install .
+git clone https://github.com/MICA-MNI/ENIGMA.git
+cd ENIGMA
+python setup.py install
 ```
 
 Return to this project directory to continue your work.

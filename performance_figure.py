@@ -1,6 +1,6 @@
 from matplotlib import style
 import numpy as np
-import torch
+# import torch
 from sklearn.linear_model import LinearRegression
 import scipy.stats
 import pandas as pd
@@ -528,19 +528,19 @@ def critical_subregions_fig(
     axes[1].set(xticklabels=[])
     return fig
 
-def load_multitask_df(n, result_dir, task_dir, model_dir, fname='performance.pt', ):
-    r = torch.load(os.path.join(
-        result_dir, task_dir, model_dir, str(n), fname
-    ))
-    df_mean = pd.DataFrame.from_records(r, columns=['spectrum radius', 'train accuracy', 'valid accuracy',])
-    # df_mean = df_mean[df_mean['spectrum radius'].isin(spectrum_radius_range)]\
-    #     .groupby('spectrum radius')[['spectrum radius', 'train accuracy', 'valid accuracy']]\
-    #     .mean().reset_index(drop=True)
-    df_all = pd.DataFrame.from_records(r, columns=('spectrum radius', 'train accuracy on tasks', 'valid accuracy on tasks', 'tasks')).apply(pd.Series.explode, ).reset_index(drop=True)
-    # df_all = df_all[df_all['spectrum radius'].isin(spectrum_radius_range)]\
-    #     .groupby('spectrum radius')[['spectrum radius', 'train accuracy on tasks', 'valid accuracy on tasks', 'tasks']]\
-    #     .mean().reset_index(drop=True)
-    return df_mean, df_all
+# def load_multitask_df(n, result_dir, task_dir, model_dir, fname='performance.pt', ):
+#     r = torch.load(os.path.join(
+#         result_dir, task_dir, model_dir, str(n), fname
+#     ))
+#     df_mean = pd.DataFrame.from_records(r, columns=['spectrum radius', 'train accuracy', 'valid accuracy',])
+#     # df_mean = df_mean[df_mean['spectrum radius'].isin(spectrum_radius_range)]\
+#     #     .groupby('spectrum radius')[['spectrum radius', 'train accuracy', 'valid accuracy']]\
+#     #     .mean().reset_index(drop=True)
+#     df_all = pd.DataFrame.from_records(r, columns=('spectrum radius', 'train accuracy on tasks', 'valid accuracy on tasks', 'tasks')).apply(pd.Series.explode, ).reset_index(drop=True)
+#     # df_all = df_all[df_all['spectrum radius'].isin(spectrum_radius_range)]\
+#     #     .groupby('spectrum radius')[['spectrum radius', 'train accuracy on tasks', 'valid accuracy on tasks', 'tasks']]\
+#     #     .mean().reset_index(drop=True)
+#     return df_mean, df_all
 
 def select_rows(df, row, row_range, *metrics):
     # 如果需要对 'spectrum radius' 或 'alpha' 选完以后再取平均，例如有多个readout class，可以使用这个函数 
@@ -673,51 +673,51 @@ def plot_memory_performance(models, model_type_names=('Empirical', 'Rewired', 'R
     save_fig(fig_1, os.path.join('visualization', 'memory_task'), fig1_name)
     return df
 
-def plot_multitask_performance(models, model_type_names=('Empirical', 'Rewired', 'Rotated'), number=100, start_n=0, fig_name = None):
-    result_dir = 'results'
-    task_dir = 'multitask14'
-    model_type_tag = 'Network type'
-    normalize = 0.5 # 显示的范围是 0.5, 1.0
+# def plot_multitask_performance(models, model_type_names=('Empirical', 'Rewired', 'Rotated'), number=100, start_n=0, fig_name = None):
+#     result_dir = 'results'
+#     task_dir = 'multitask14'
+#     model_type_tag = 'Network type'
+#     normalize = 0.5 # 显示的范围是 0.5, 1.0
 
-    metrics = 'valid accuracy'
+#     metrics = 'valid accuracy'
 
-    plot_spectrum_radius = [
-        0.3, 0.5, 0.7, 0.8, 0.9, 
-        0.95, 
-        1.0, 
-        1.05, 
-        1.1, 1.2, 1.3, 1.4, 1.5, 
-        2.0, 2.5, 3.0, 3.5
-    ]
-    df_mean = pd.DataFrame()
-    df_all = pd.DataFrame()
-    for model_dir, model_type in zip(models, model_type_names):
-        dfs = [load_multitask_df(i, result_dir, task_dir, model_dir) for i in range(start_n, start_n+number)]
-        df_tmp_mean = [d[0] for d in dfs]
-        df_tmp_all = [d[1] for d in dfs]
+#     plot_spectrum_radius = [
+#         0.3, 0.5, 0.7, 0.8, 0.9, 
+#         0.95, 
+#         1.0, 
+#         1.05, 
+#         1.1, 1.2, 1.3, 1.4, 1.5, 
+#         2.0, 2.5, 3.0, 3.5
+#     ]
+#     df_mean = pd.DataFrame()
+#     df_all = pd.DataFrame()
+#     for model_dir, model_type in zip(models, model_type_names):
+#         dfs = [load_multitask_df(i, result_dir, task_dir, model_dir) for i in range(start_n, start_n+number)]
+#         df_tmp_mean = [d[0] for d in dfs]
+#         df_tmp_all = [d[1] for d in dfs]
 
-        df_tmp_mean = pd.concat(df_tmp_mean).reset_index(drop=True)
-        df_tmp_mean[model_type_tag] = model_type
-        df_mean = pd.concat([df_mean, df_tmp_mean])
+#         df_tmp_mean = pd.concat(df_tmp_mean).reset_index(drop=True)
+#         df_tmp_mean[model_type_tag] = model_type
+#         df_mean = pd.concat([df_mean, df_tmp_mean])
 
-        df_tmp_all = pd.concat(df_tmp_all).reset_index(drop=True)
-        df_tmp_all[model_type_tag] = model_type
-        df_all = pd.concat([df_all, df_tmp_all])
-    df_mean = df_mean.reset_index(drop=True)
-    df_all = df_all.reset_index(drop=True)
+#         df_tmp_all = pd.concat(df_tmp_all).reset_index(drop=True)
+#         df_tmp_all[model_type_tag] = model_type
+#         df_all = pd.concat([df_all, df_tmp_all])
+#     df_mean = df_mean.reset_index(drop=True)
+#     df_all = df_all.reset_index(drop=True)
 
-    df_mean = df_mean[df_mean['spectrum radius'].isin(plot_spectrum_radius)]
-    df_all = df_all[df_all['spectrum radius'].isin(plot_spectrum_radius)]
+#     df_mean = df_mean[df_mean['spectrum radius'].isin(plot_spectrum_radius)]
+#     df_all = df_all[df_all['spectrum radius'].isin(plot_spectrum_radius)]
     
-    tag_name_mappings = {
-        'valid accuracy': r'Multitask accuracy',
-        'alpha': r'$\alpha$',
-        'spectrum radius': r'$\alpha$',
-    }
-    fig = dynamic_performance_fig(df_mean.copy(), tag_name_mappings, metrics, model_type_tag, normalize)
-    # fig1 = dynamic_performance_fig(df_all.copy(), metrics, model_type_tag, normalize_01)
+#     tag_name_mappings = {
+#         'valid accuracy': r'Multitask accuracy',
+#         'alpha': r'$\alpha$',
+#         'spectrum radius': r'$\alpha$',
+#     }
+#     fig = dynamic_performance_fig(df_mean.copy(), tag_name_mappings, metrics, model_type_tag, normalize)
+#     # fig1 = dynamic_performance_fig(df_all.copy(), metrics, model_type_tag, normalize_01)
     
-    save_fig(fig, os.path.join('visualization', 'multitask14'), fig_name)
+#     save_fig(fig, os.path.join('visualization', 'multitask14'), fig_name)
 
 def plot_distweight_ws_performance(number=1000, fig_name=None):
     c_id = [9, 44, 46]
